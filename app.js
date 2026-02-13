@@ -11,6 +11,17 @@ const programLabel = document.getElementById("program-label");
 
 function selectStudentType(type) {
   studentType = type;
+  
+  // Load data for this specific type from storage
+  let fullData = {};
+  try {
+     fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch { fullData = {}; }
+  
+  const typeData = fullData[type] || {};
+  selectedLevel = typeData.selectedLevel || "100 Level";
+  grades = typeData.grades || {};
+
   studentScreen.classList.add("hidden");
   calculatorScreen.classList.remove("hidden");
   saveToStorage();
@@ -18,8 +29,10 @@ function selectStudentType(type) {
 }
 
 function goBack() {
+  saveToStorage(); // Save current profile data before exiting
   studentType = null;
-  grades = {};
+  saveToStorage(); // Update active state to null
+  
   calculatorScreen.classList.add("hidden");
   studentScreen.classList.remove("hidden");
 }
@@ -32,6 +45,7 @@ function resetGrades() {
 
 function changeLevel(level) {
   selectedLevel = level;
+  saveToStorage(); // Fix: save selected level
   coursesAnimated = false;
   render();
 }
@@ -134,12 +148,21 @@ function calculateBreakdown() {
 const STORAGE_KEY = "nacos-gp-calculator";
 
 function saveToStorage() {
-  const data = {
-    studentType,
-    selectedLevel,
-    grades,
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  let fullData = {};
+  try {
+     fullData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch { fullData = {}; }
+
+  fullData.activeStudentType = studentType;
+
+  if (studentType) {
+      fullData[studentType] = {
+          selectedLevel,
+          grades
+      };
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(fullData));
 }
 
 function loadFromStorage() {
@@ -147,10 +170,17 @@ function loadFromStorage() {
   if (!raw) return;
 
   try {
-    const data = JSON.parse(raw);
-    studentType = data.studentType ?? null;
-    selectedLevel = data.selectedLevel ?? "100 Level";
-    grades = data.grades ?? {};
+    const fullData = JSON.parse(raw);
+    const activeType = fullData.activeStudentType;
+
+    if (activeType && fullData[activeType]) {
+        studentType = activeType;
+        const typeData = fullData[activeType];
+        selectedLevel = typeData.selectedLevel || "100 Level";
+        grades = typeData.grades || {};
+    } else {
+        studentType = null;
+    }
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
